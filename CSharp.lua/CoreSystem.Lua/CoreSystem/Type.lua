@@ -20,6 +20,7 @@ local Object = System.Object
 local Boolean = System.Boolean
 local Delegate = System.Delegate
 local getClass = System.getClass
+local getGenericClass = System.getGenericClass
 local arrayFromTable = System.arrayFromTable
 
 local InvalidCastException = System.InvalidCastException
@@ -54,7 +55,7 @@ local floor = math.floor
 local Type, typeof
 
 local function isGenericName(name)
-  return name:byte(#name) == 93
+  return name:find('`') ~= nil
 end
 
 local function getBaseType(this)
@@ -156,7 +157,12 @@ local function isAssignableFrom(this, c)
 end
 
 local function isGenericTypeDefinition(this)
-  return not rawget(this[1], "__name__")
+  local cls = this[1]
+  return getGenericClass(cls) == cls
+end
+
+local function getIsArray(this)
+  return this[1].__name__:byte(-2) == 91
 end
 
 Type = System.define("System.Type", {
@@ -169,14 +175,9 @@ Type = System.define("System.Type", {
   end,
   getIsGenericTypeDefinition = isGenericTypeDefinition,
   GetGenericTypeDefinition = function (this)
-    if isGenericTypeDefinition(this) then
-      return this
-    end
-    local name = this[1].__name__
-    local i = name:find('`')
-    if i then
-      local genericTypeName = name:sub(1, i - 1)
-      return typeof(System.getClass(genericTypeName))
+    local genericClass = getGenericClass(this[1])
+    if genericClass then
+      return typeof(genericClass)
     end
     throw(System.InvalidOperationException())
   end,
@@ -246,6 +247,13 @@ Type = System.define("System.Type", {
       return false 
     end
     return isAssignableFrom(this, obj:GetType())
+  end,
+  getIsArray = getIsArray,
+  GetElementType = function (this)
+    if getIsArray(this) then
+      return typeof(this[1].__genericT__)
+    end
+    return nil
   end,
   ToString = function (this)
     return this[1].__name__

@@ -288,8 +288,8 @@ namespace CSharpLua {
       return InternalBuildCodeTemplateExpression(codeTemplate, targetExpression, arguments.Select<LuaExpressionSyntax, Func<LuaExpressionSyntax>>(i => () => i), typeArguments);
     }
 
-    private LuaExpressionSyntax BuildCodeTemplateExpression(string codeTemplate, ExpressionSyntax targetExpression, IEnumerable<ExpressionSyntax> arguments, IList<ITypeSymbol> typeArguments) {
-      return InternalBuildCodeTemplateExpression(codeTemplate, targetExpression, arguments.Select<ExpressionSyntax, Func<LuaExpressionSyntax>>(i => () => VisitExpression(i)), typeArguments);
+    private LuaExpressionSyntax BuildCodeTemplateExpression(string codeTemplate, ExpressionSyntax targetExpression, IEnumerable<Func<LuaExpressionSyntax>> arguments, IList<ITypeSymbol> typeArguments) {
+      return InternalBuildCodeTemplateExpression(codeTemplate, targetExpression, arguments, typeArguments);
     }
 
     private void AddCodeTemplateExpression(LuaExpressionSyntax expression, string comma, LuaCodeTemplateExpressionSyntax codeTemplateExpression) {
@@ -904,7 +904,11 @@ namespace CSharpLua {
           if (!symbol.IsTypeParameterExists()) {
             success = AddGenericImport(invocationExpression, newName, argumentTypeNames, symbol.IsAbsoluteFromCode());
           } else {
-            success = CurTypeDeclaration.TypeDeclaration.AddGenericImport(invocationExpression, newName, argumentTypeNames, symbol.IsAbsoluteFromCode());
+            bool hasAdd;
+            (success, hasAdd) = CurTypeDeclaration.TypeDeclaration.AddGenericImport(invocationExpression, newName, argumentTypeNames, symbol.IsAbsoluteFromCode());
+            if (hasAdd) {
+              generator_.AddGenericImportDepend(CurTypeDeclaration.TypeSymbol, symbol.OriginalDefinition as INamedTypeSymbol);
+            }
           }
           if (success) {
             luaExpression = newName;
@@ -1093,7 +1097,7 @@ namespace CSharpLua {
           while (true) {
             var parent = current.Parent;
             var kind = parent.Kind();
-            if (kind == SyntaxKind.SimpleAssignmentExpression) {
+            if (kind.IsAssignment()) {
               var assignment = (AssignmentExpressionSyntax)parent;
               if (assignment.Left == current) {
                 need = false;
@@ -1203,14 +1207,7 @@ namespace CSharpLua {
       return null;
     }
 
-    private LuaExpressionSyntax BuildInheritTypeName(BaseTypeSyntax baseType) {
-      ++noImportTypeNameCounter_;
-      var baseTypeName = baseType.AcceptExpression(this);
-      --noImportTypeNameCounter_;
-      return baseTypeName;
-    }
-
-    private LuaExpressionSyntax BuildInheritTypeName(INamedTypeSymbol baseType) {
+    private LuaExpressionSyntax BuildInheritTypeName(ITypeSymbol baseType) {
       ++noImportTypeNameCounter_;
       var baseTypeName = GetTypeName(baseType);
       --noImportTypeNameCounter_;
@@ -1261,7 +1258,7 @@ namespace CSharpLua {
 
     private void TryRemoveNilArgumentsAtTail(ISymbol symbol, List<LuaExpressionSyntax> arguments) {
       if (arguments.Count > 0) {
-        if (generator_.IsFromLuaModule(symbol) || symbol.ContainingType.GetMembers(symbol.Name).Length == 1) {
+        if (generator_.IsFromLuaModule(symbol)) {
           arguments.RemoveNilAtTail();
         }
       }

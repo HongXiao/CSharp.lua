@@ -72,7 +72,7 @@ namespace CSharpLua {
       if (symbol != null) {
         string codeTemplate = XmlMetaProvider.GetMethodCodeTemplate(symbol);
         if (codeTemplate != null) {
-          creationExpression = BuildCodeTemplateExpression(codeTemplate, null, node.ArgumentList.Arguments.Select(i => i.Expression), symbol.TypeArguments);
+          creationExpression = BuildCodeTemplateExpression(codeTemplate, null, FillCodeTemplateInvocationArguments(symbol, node.ArgumentList, null), symbol.TypeArguments);
         } else if (node.Type.IsKind(SyntaxKind.NullableType)) {
           Contract.Assert(node.ArgumentList.Arguments.Count == 1);
           var argument = node.ArgumentList.Arguments.First();
@@ -925,7 +925,7 @@ namespace CSharpLua {
 
       if (isRoot) {
         conditionalTemps_.Pop();
-        ReleaseTempIdentifier(temp);
+        AddReleaseTempIdentifier(temp);
       }
 
       if (IsReturnVoidConditionalAccessExpression(node)) {
@@ -1200,7 +1200,9 @@ namespace CSharpLua {
     }
 
     public override LuaSyntaxNode VisitOperatorDeclaration(OperatorDeclarationSyntax node) {
-      BuildOperatorMethodDeclaration(node);
+      if (IsExportMethodDeclaration(node)) {
+        BuildOperatorMethodDeclaration(node);
+      } 
       return base.VisitOperatorDeclaration(node);
     }
 

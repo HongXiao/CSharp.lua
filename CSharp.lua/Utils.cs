@@ -457,7 +457,7 @@ namespace CSharpLua {
     }
 
     public static bool IsRecordType(this INamedTypeSymbol type) {
-      var methods = type.GetMembers("<>Clone");
+      var methods = type.GetMembers("<Clone>$");
       return methods.Length == 1;
     }
 
@@ -539,6 +539,14 @@ namespace CSharpLua {
       var node = symbol.GetDeclaringSyntaxNode();
       if (node != null) {
         return node.HasCSharpLuaAttribute(LuaDocumentStatement.AttributeFlags.Metadata);
+      }
+      return false;
+    }
+
+    public static bool HasParamsAttribute(this ISymbol symbol) {
+      var node = symbol.GetDeclaringSyntaxNode();
+      if (node != null) {
+        return node.HasCSharpLuaAttribute(LuaDocumentStatement.AttributeFlags.Params);
       }
       return false;
     }
